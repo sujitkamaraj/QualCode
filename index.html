@@ -1,0 +1,614 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QualCode</title>
+<style>
+:root{--bg:#f6f5f2;--panel:#fff;--ink:#1f2328;--muted:#6b6f76;--line:#e3e1dc;--accent:#2f5d8a;--accent-soft:#e8eef5;--danger:#b3261e}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);height:100vh;display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
+header h1{font-size:16px;margin:0 10px 0 0;letter-spacing:-.01em}
+#folderName{color:var(--muted);font-size:13px}
+#docTitle{font-weight:600;margin-left:10px}
+.spacer{flex:1}
+.status{color:var(--muted);font-size:12px;min-width:120px;text-align:right}
+button{font:inherit;border:1px solid var(--line);background:#fff;border-radius:6px;padding:5px 10px;cursor:pointer;color:var(--ink)}
+button:hover:not(:disabled){border-color:#b9b6ae}
+button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.link{border:0;background:none;padding:0 4px;color:var(--muted)}
+button.link:hover{color:var(--danger)}
+.banner{background:#fff6df;border-bottom:1px solid #ecd9a4;padding:8px 16px;font-size:13px}
+main{flex:1;display:grid;grid-template-columns:220px 1fr 310px;min-height:0}
+aside,section{overflow:auto;min-height:0}
+aside{background:var(--panel);border-right:1px solid var(--line);padding:12px}
+aside.right{border-right:0;border-left:1px solid var(--line)}
+h2{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:6px 0 8px;display:flex;align-items:center;justify-content:space-between}
+.proj{display:block;width:100%;text-align:left;border:0;padding:6px 8px;border-radius:6px;margin-bottom:2px;background:transparent;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.proj:hover{background:#f1f0ec}
+.proj.active{background:var(--accent-soft);font-weight:600}
+#docwrap{padding:24px 28px}
+#doc{white-space:pre-wrap;word-wrap:break-word;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:24px 28px;max-width:860px;margin:0 auto;font-size:15px;line-height:1.8;min-height:200px}
+.hl{border-radius:2px;cursor:pointer;transition:background .15s}
+.hl.multi{box-shadow:inset 0 -2px 0 rgba(0,0,0,.4)}
+.hl.dim{background:transparent!important;box-shadow:none;cursor:text}
+.hl.flash{outline:2px solid var(--accent)}
+.empty{color:var(--muted);text-align:center;padding:60px 20px;white-space:normal}
+.code{display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:6px;cursor:pointer}
+.code:hover{background:#f1f0ec}
+.code.active{background:var(--accent-soft)}
+.swatch{width:10px;height:10px;border-radius:3px;flex:none}
+.code .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.code .n{color:var(--muted);font-size:12px}
+.code .acts{display:none}
+.code:hover .acts{display:flex}
+.seg{border:1px solid var(--line);border-radius:6px;padding:6px 8px;margin-bottom:6px;cursor:pointer;font-size:13px}
+.seg:hover{border-color:#b9b6ae}
+.tag{display:inline-block;border-radius:4px;padding:0 6px;font-size:12px;font-weight:600;margin-bottom:2px}
+.seg .txt{color:#3b3f45;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.seg .memo{color:var(--muted);font-style:italic;font-size:12px}
+.muted{color:var(--muted);font-size:13px}
+.pop{position:fixed;z-index:20;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.15);padding:10px;width:320px}
+.pop[hidden]{display:none}
+.preview{font-size:12px;color:var(--muted);max-height:48px;overflow:hidden;margin-bottom:8px;border-left:3px solid var(--line);padding-left:8px}
+.pop input{width:100%;font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:6px}
+.pop input:focus{outline:2px solid var(--accent-soft);border-color:var(--accent)}
+#sugg{list-style:none;margin:4px 0 8px;padding:0;max-height:190px;overflow:auto;border:1px solid var(--line);border-radius:6px}
+#sugg:empty{display:none}
+#sugg li{padding:5px 8px;cursor:pointer;display:flex;gap:6px;align-items:center}
+#sugg li.on{background:var(--accent-soft)}
+#sugg li .n{margin-left:auto;color:var(--muted);font-size:12px}
+#sugg li.new{color:var(--accent);font-weight:600}
+.applied{margin:4px 0}
+.applied .sub{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:8px 0 4px}
+.arow{display:flex;align-items:center;gap:6px;padding:2px 0}
+.arow .tag{margin:0;flex:none}
+.arow .amemo{flex:1;min-width:0;font-size:12px;color:var(--muted);font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.arow.other{cursor:pointer;border-radius:4px;padding:2px 4px;margin:0 -4px}
+.arow.other:hover{background:#f1f0ec}
+.row{display:flex;gap:6px;margin-top:8px}
+.hint{font-size:11px;color:var(--muted);margin-top:6px}
+.modal{position:fixed;inset:0;background:rgba(20,20,20,.35);display:flex;align-items:center;justify-content:center;z-index:30;padding:16px}
+.modal[hidden]{display:none}
+.card{background:var(--panel);border-radius:10px;padding:18px;width:min(720px,100%);max-height:90vh;display:flex;flex-direction:column;gap:10px}
+.card h3{margin:0;font-size:16px}
+.card input,.card textarea{font:inherit;padding:8px;border:1px solid var(--line);border-radius:6px;width:100%}
+.card textarea{min-height:320px;resize:vertical;font-size:14px;line-height:1.6}
+#editbar{max-width:860px;margin:0 auto 10px;display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted);flex-wrap:wrap}
+#editbar[hidden],#editor[hidden],#doc[hidden]{display:none}
+#editor{display:block;width:100%;max-width:860px;margin:0 auto;background:var(--panel);border:1px solid var(--accent);border-radius:8px;padding:24px 28px;font:15px/1.8 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);resize:none;overflow:hidden;min-height:300px}
+#editor:focus{outline:3px solid var(--accent-soft)}
+@media (max-width:900px){main{grid-template-columns:1fr}aside{border:0;border-bottom:1px solid var(--line);max-height:30vh}}
+</style>
+</head>
+<body>
+<header>
+  <h1>QualCode</h1>
+  <span id="folderName"></span>
+  <span id="docTitle"></span>
+  <button id="editBtn" disabled>✎ Edit text</button>
+  <span class="spacer"></span>
+  <button id="expCodes" disabled>Export unique codes (CSV)</button>
+  <button id="expSegs" disabled>Export codes + text (CSV)</button>
+  <span class="status" id="status"></span>
+</header>
+<div class="banner" id="banner" hidden></div>
+<main>
+  <aside>
+    <h2>Documents <button id="newBtn" disabled>+ New</button></h2>
+    <div id="projList"></div>
+  </aside>
+  <section id="docwrap">
+    <div id="editbar" hidden><span>Editing text. Highlights move with the text; a highlight whose text you delete completely is removed. (Ctrl/⌘+S saves)</span><span class="spacer"></span><button id="cancelEdit">Cancel</button><button id="saveEdit" class="primary">Save text</button></div>
+    <div id="doc"></div>
+    <textarea id="editor" hidden></textarea>
+  </section>
+  <aside class="right">
+    <h2>Codes in this document <button class="link" id="clearFilter" hidden>show all</button></h2>
+    <div id="codeList"></div>
+    <h2 style="margin-top:18px">Coded segments <span id="segCount"></span></h2>
+    <div id="segList"></div>
+  </aside>
+</main>
+
+<div class="pop" id="pop" hidden>
+  <div class="preview" id="popPreview"></div>
+  <input id="codeInput" placeholder="Type a code…" autocomplete="off" spellcheck="false">
+  <ul id="sugg"></ul>
+  <input id="memoInput" placeholder="Memo (optional)" autocomplete="off">
+  <div class="applied" id="applied"></div>
+  <div class="row"><button id="applyBtn" class="primary">Apply code</button><button id="doneBtn">Done</button></div>
+  <div class="hint">Enter applies · ↑↓ picks a code · Esc closes · add as many codes as you like</div>
+</div>
+
+<div class="pop" id="info" hidden></div>
+
+<div class="modal" id="modal" hidden>
+  <div class="card">
+    <h3>New document</h3>
+    <input id="newName" placeholder="Document name (e.g. Interview_P01)">
+    <textarea id="newText" placeholder="Paste your text here…"></textarea>
+    <div class="row" style="justify-content:flex-end"><button id="cancelNew">Cancel</button><button id="createNew" class="primary">Create</button></div>
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+let projects = [];          // document/folder names
+let cur = null;             // {name,text,segments,created}
+let otherCodes = new Map(); // code -> count in other documents
+let filterCode = null;
+let pending = null;         // {start,end} of current selection
+let sugg = [], suggIdx = 0;
+let saving = Promise.resolve();
+let editing = false;
+
+/* ---------- small helpers ---------- */
+const uid = () => 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const safeName = n => n.replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim().slice(0, 80);
+function color(code, l = 82){ let h = 0; for (const c of code) h = (h * 31 + c.charCodeAt(0)) >>> 0; return `hsl(${h % 360} 70% ${l}%)`; }
+function status(m){ $('#status').textContent = m; }
+
+/* ---------- CSV ---------- */
+function csvCell(v){ v = v == null ? '' : String(v); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
+function toCSV(rows){ return '\uFEFF' + rows.map(r => r.map(csvCell).join(',')).join('\r\n') + '\r\n'; }
+function parseCSV(s){
+  s = s.replace(/^\uFEFF/, ''); const rows = []; let row = [], f = '', q = false;
+  for (let i = 0; i < s.length; i++){
+    const c = s[i];
+    if (q){ if (c === '"'){ if (s[i+1] === '"'){ f += '"'; i++; } else q = false; } else f += c; }
+    else if (c === '"') q = true;
+    else if (c === ','){ row.push(f); f = ''; }
+    else if (c === '\n' || c === '\r'){ if (c === '\r' && s[i+1] === '\n') i++; row.push(f); rows.push(row); row = []; f = ''; }
+    else f += c;
+  }
+  if (f !== '' || row.length){ row.push(f); rows.push(row); }
+  return rows.filter(r => r.some(x => x !== ''));
+}
+function codeCounts(p){ const m = new Map(); p.segments.forEach(s => m.set(s.code, (m.get(s.code) || 0) + 1)); return m; }
+function codesRows(p){
+  const m = codeCounts(p);
+  return [['code', 'frequency'], ...[...m.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([c, n]) => [c, n])];
+}
+function segRows(p){
+  const segs = [...p.segments].sort((a, b) => a.start - b.start || a.code.localeCompare(b.code));
+  return [['document', 'code', 'highlighted_text', 'start_char', 'end_char', 'memo', 'coded_at'],
+    ...segs.map(s => [p.name, s.code, p.text.slice(s.start, s.end), s.start, s.end, s.memo || '', s.created || ''])];
+}
+function download(name, text){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], {type: 'text/csv;charset=utf-8'}));
+  a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+/* ---------- storage: local Python server (server.py) ---------- */
+const API = location.protocol.startsWith('http');
+let root = API;
+function lsAll(){ try { return JSON.parse(localStorage.getItem('qualcode_projects') || '{}'); } catch(e){ return {}; } }
+function normalize(p, name){
+  return { name, text: String(p.text || ''), created: p.created || new Date().toISOString(),
+    segments: (p.segments || []).filter(s => s && s.code && s.end > s.start).map(s => ({ id: s.id || uid(), start: +s.start, end: +s.end, code: String(s.code).trim(), memo: s.memo || '', created: s.created || '' })) };
+}
+function segmentsFromCSV(text, csv){
+  const segments = []; const rows = parseCSV(csv || ''); const h = rows.shift() || []; const ix = k => h.indexOf(k);
+  rows.forEach(r => {
+    let st = parseInt(r[ix('start_char')]), en = parseInt(r[ix('end_char')]); const t = r[ix('highlighted_text')] || '';
+    if (isNaN(st) || text.slice(st, en) !== t){ st = text.indexOf(t); en = st + t.length; }
+    if (st >= 0 && t) segments.push({ start: st, end: en, code: r[ix('code')], memo: r[ix('memo')] || '', created: r[ix('coded_at')] || '' });
+  });
+  return segments;
+}
+async function api(path, body){
+  const r = await fetch(path, body ? { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) } : {});
+  if (!r.ok) throw new Error(await r.text() || r.statusText);
+  return r.json();
+}
+const Store = {
+  async list(){ return API ? (await api('api/projects')).projects : Object.keys(lsAll()).sort((a, b) => a.localeCompare(b)); },
+  async load(name){
+    if (!API) return normalize(lsAll()[name] || {}, name);
+    const j = await api('api/project?name=' + encodeURIComponent(name));
+    if (j.project) return normalize(j.project, name);
+    return normalize({ text: j.text || '', segments: segmentsFromCSV(j.text || '', j.segments_csv) }, name);
+  },
+  async save(p){
+    const data = { text: p.text, segments: p.segments, created: p.created, saved: new Date().toISOString() };
+    if (!API){ const all = lsAll(); all[p.name] = data; localStorage.setItem('qualcode_projects', JSON.stringify(all)); return; }
+    await api('api/save', { name: p.name, project: data, codes_csv: toCSV(codesRows(p)), segments_csv: toCSV(segRows(p)) });
+  }
+};
+function save(){
+  if (!cur) return;
+  const snap = JSON.parse(JSON.stringify(cur));
+  status('Saving…');
+  saving = saving.then(() => Store.save(snap))
+    .then(() => status('Saved ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})))
+    .catch(e => { status('Save failed'); alert('Could not save — is server.py still running?\n\n' + e.message); });
+  return saving;
+}
+async function init(){
+  $('#newBtn').disabled = false;
+  if (API){
+    try { const info = await api('api/info'); $('#folderName').textContent = '📁 ' + info.folder; $('#folderName').title = info.path; }
+    catch(e){ $('#banner').hidden = false; $('#banner').textContent = 'Can’t reach the QualCode server. Start it again with start.bat (Windows) or start.command (Mac).'; }
+  } else {
+    $('#banner').hidden = false;
+    $('#banner').innerHTML = 'You opened the file directly, so nothing is saved to folders. Close this tab and start the tool with <b>start.bat</b> (Windows) or <b>start.command</b> (Mac) instead.';
+  }
+  return refresh(localStorage.getItem('qualcode_last'));
+}
+
+/* ---------- documents ---------- */
+async function refresh(openName){
+  projects = await Store.list();
+  if (openName && projects.includes(openName)) await openProject(openName);
+  else if (cur && projects.includes(cur.name)) await openProject(cur.name);
+  else { cur = null; await scanOther(); renderAll(); }
+}
+async function openProject(name){
+  if (!leaveEdit()) return;
+  await saving;
+  cur = await Store.load(name);
+  filterCode = null;
+  localStorage.setItem('qualcode_last', name);
+  await scanOther();
+  renderAll();
+}
+async function scanOther(){
+  otherCodes = new Map();
+  for (const n of projects){
+    if (cur && n === cur.name) continue;
+    try { const p = await Store.load(n); codeCounts(p).forEach((c, k) => otherCodes.set(k, (otherCodes.get(k) || 0) + c)); } catch(e){}
+  }
+}
+$('#newBtn').onclick = () => { $('#newName').value = ''; $('#newText').value = ''; $('#modal').hidden = false; $('#newName').focus(); };
+$('#cancelNew').onclick = () => $('#modal').hidden = true;
+$('#createNew').onclick = async () => {
+  const name = safeName($('#newName').value); const text = $('#newText').value.replace(/\r\n?/g, '\n');
+  if (!name) return alert('Please give the document a name.');
+  if (!text.trim()) return alert('Please paste some text.');
+  if (projects.includes(name)) return alert('A document with that name already exists.');
+  await saving;
+  cur = { name, text, segments: [], created: new Date().toISOString() };
+  await save();
+  $('#modal').hidden = true;
+  await refresh(name);
+};
+
+/* ---------- rendering ---------- */
+function renderAll(){ renderProjects(); render(); renderCodes(); renderSegs();
+  $('#docTitle').textContent = cur ? cur.name : '';
+  $('#expCodes').disabled = $('#expSegs').disabled = !cur;
+  $('#editBtn').disabled = !cur || editing;
+}
+function renderProjects(){
+  const el = $('#projList');
+  if (!projects.length){ el.innerHTML = `<div class="muted">No documents yet. Click “+ New” and paste your text.</div>`; return; }
+  el.innerHTML = projects.map(n => `<button class="proj ${cur && cur.name === n ? 'active' : ''}" data-n="${esc(n)}" title="${esc(n)}">${esc(n)}</button>`).join('');
+  el.querySelectorAll('.proj').forEach(b => b.onclick = () => openProject(b.dataset.n));
+}
+function render(){
+  const doc = $('#doc');
+  if (!cur){
+    doc.innerHTML = `<div class="empty">Create or pick a document on the left.</div>`;
+    return;
+  }
+  const t = cur.text, segs = cur.segments;
+  const pts = [...new Set([0, t.length, ...segs.flatMap(s => [s.start, s.end])])].sort((a, b) => a - b);
+  const frag = document.createDocumentFragment();
+  for (let i = 0; i < pts.length - 1; i++){
+    const a = pts[i], z = pts[i + 1]; if (a >= z) continue;
+    const piece = t.slice(a, z);
+    const cov = segs.filter(s => s.start < z && s.end > a);
+    if (!cov.length){ frag.appendChild(document.createTextNode(piece)); continue; }
+    const sp = document.createElement('span');
+    sp.className = 'hl'; sp.textContent = piece; sp.dataset.ids = cov.map(s => s.id).join(' ');
+    const codes = [...new Set(cov.map(s => s.code))];
+    const shown = filterCode ? codes.filter(c => c === filterCode) : codes;
+    if (!shown.length) sp.classList.add('dim');
+    else { sp.style.background = color(shown[0]); if (codes.length > 1) sp.classList.add('multi'); }
+    sp.title = codes.join(', ');
+    frag.appendChild(sp);
+  }
+  doc.replaceChildren(frag);
+}
+function renderCodes(){
+  const el = $('#codeList'); $('#clearFilter').hidden = !filterCode;
+  if (!cur){ el.innerHTML = ''; return; }
+  const m = codeCounts(cur);
+  if (!m.size){ el.innerHTML = '<div class="muted">Select text in the document to add your first code.</div>'; return; }
+  el.innerHTML = [...m.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([c, n]) =>
+    `<div class="code ${filterCode === c ? 'active' : ''}" data-c="${esc(c)}"><span class="swatch" style="background:${color(c, 65)}"></span><span class="name" title="${esc(c)}">${esc(c)}</span>
+     <span class="acts"><button class="link" data-act="ren" title="Rename">✎</button><button class="link" data-act="del" title="Remove from this document">✕</button></span><span class="n">${n}</span></div>`).join('');
+  el.querySelectorAll('.code').forEach(d => d.onclick = e => {
+    const c = d.dataset.c, act = e.target.dataset.act;
+    if (act === 'ren'){
+      const nn = (prompt('Rename code (this document):', c) || '').trim(); if (!nn || nn === c) return;
+      cur.segments.forEach(s => { if (s.code === c) s.code = nn; });
+      const seen = new Set(); cur.segments = cur.segments.filter(s => { const k = s.start + ':' + s.end + ':' + s.code; if (seen.has(k)) return false; seen.add(k); return true; });
+      if (filterCode === c) filterCode = nn;
+    } else if (act === 'del'){
+      if (!confirm(`Remove all ${m.get(c)} “${c}” highlight(s) from this document?`)) return;
+      cur.segments = cur.segments.filter(s => s.code !== c); if (filterCode === c) filterCode = null;
+    } else { filterCode = filterCode === c ? null : c; render(); renderCodes(); renderSegs(); return; }
+    renderAll(); save();
+  });
+}
+$('#clearFilter').onclick = () => { filterCode = null; render(); renderCodes(); renderSegs(); };
+function renderSegs(){
+  const el = $('#segList');
+  if (!cur){ el.innerHTML = ''; $('#segCount').textContent = ''; return; }
+  const list = cur.segments.filter(s => !filterCode || s.code === filterCode).sort((a, b) => a.start - b.start);
+  $('#segCount').textContent = list.length ? `(${list.length})` : '';
+  el.innerHTML = list.map(s => `<div class="seg" data-id="${s.id}"><span class="tag" style="background:${color(s.code)}">${esc(s.code)}</span>
+    <div class="txt">${esc(cur.text.slice(s.start, s.end))}</div>${s.memo ? `<div class="memo">${esc(s.memo)}</div>` : ''}</div>`).join('') || '<div class="muted">Nothing coded yet.</div>';
+  el.querySelectorAll('.seg').forEach(d => d.onclick = () => {
+    const sp = document.querySelector(`#doc [data-ids~="${d.dataset.id}"]`);
+    if (sp){ sp.scrollIntoView({behavior: 'smooth', block: 'center'}); document.querySelectorAll(`#doc [data-ids~="${d.dataset.id}"]`).forEach(x => { x.classList.add('flash'); setTimeout(() => x.classList.remove('flash'), 1400); }); }
+  });
+}
+
+/* ---------- selecting & coding ---------- */
+function offsetIn(node, off){ const r = document.createRange(); r.setStart($('#doc'), 0); r.setEnd(node, off); return r.toString().length; }
+$('#doc').addEventListener('mouseup', e => setTimeout(() => {
+  if (!cur || editing) return;
+  const sel = window.getSelection(); const doc = $('#doc');
+  if (sel.isCollapsed || !sel.rangeCount){
+    const sp = e.target.closest('.hl'); if (sp && !sp.classList.contains('dim')) openFromHighlight(sp, e); return;
+  }
+  const r = sel.getRangeAt(0);
+  if (!doc.contains(r.startContainer) || !doc.contains(r.endContainer)) return;
+  let st = offsetIn(r.startContainer, r.startOffset), en = offsetIn(r.endContainer, r.endOffset);
+  while (st < en && /\s/.test(cur.text[st])) st++;
+  while (en > st && /\s/.test(cur.text[en - 1])) en--;
+  if (en <= st) return;
+  pending = { start: st, end: en };
+  openPop(r.getBoundingClientRect());
+}, 0));
+function place(el, rect){
+  el.hidden = false;
+  const w = el.offsetWidth, h = el.offsetHeight;
+  let x = Math.min(Math.max(8, rect.left), window.innerWidth - w - 8);
+  let y = rect.bottom + 8; if (y + h > window.innerHeight - 8) y = Math.max(8, rect.top - h - 8);
+  el.style.left = x + 'px'; el.style.top = y + 'px';
+}
+let popOthers = [];   // ids of highlights under the clicked spot
+const sameRange = s => pending && s.start === pending.start && s.end === pending.end;
+function setPreview(){
+  const t = cur.text.slice(pending.start, pending.end);
+  $('#popPreview').textContent = '“' + (t.length > 160 ? t.slice(0, 160) + '…' : t) + '”';
+}
+function openFromHighlight(sp, e){
+  const ids = sp.dataset.ids.split(' ');
+  const segs = cur.segments.filter(s => ids.includes(s.id)).sort((a, b) => (a.end - a.start) - (b.end - b.start));
+  if (!segs.length) return;
+  pending = { start: segs[0].start, end: segs[0].end };   // innermost passage under the click
+  openPop({left: e.clientX - 20, top: e.clientY - 10, bottom: e.clientY + 10}, ids);
+}
+function openPop(rect, ids = []){
+  $('#info').hidden = true;
+  popOthers = ids;
+  setPreview();
+  $('#codeInput').value = ''; $('#memoInput').value = '';
+  renderApplied(); updateSugg();
+  place($('#pop'), rect);
+  $('#codeInput').focus();
+}
+function closePop(){ $('#pop').hidden = true; pending = null; }
+function allCodes(){
+  const m = new Map(otherCodes); if (cur) codeCounts(cur).forEach((c, k) => m.set(k, (m.get(k) || 0) + c));
+  return [...m.entries()].map(([code, n]) => ({code, n}));
+}
+function updateSugg(){
+  const q = $('#codeInput').value.trim(), ql = q.toLowerCase();
+  const have = new Set(cur.segments.filter(sameRange).map(s => s.code.toLowerCase()));
+  let list = allCodes().filter(c => !have.has(c.code.toLowerCase()) && (!ql || c.code.toLowerCase().includes(ql)));
+  list.sort((a, b) => (ql ? (b.code.toLowerCase().startsWith(ql) - a.code.toLowerCase().startsWith(ql)) : 0) || b.n - a.n || a.code.localeCompare(b.code));
+  list = list.slice(0, 50);
+  if (q && !have.has(ql) && !list.some(c => c.code.toLowerCase() === ql)) list.push({code: q, n: 0, isNew: true});
+  sugg = list; suggIdx = q ? 0 : -1;
+  drawSugg();
+}
+function drawSugg(){
+  $('#sugg').innerHTML = sugg.map((c, i) => c.isNew
+    ? `<li class="new ${i === suggIdx ? 'on' : ''}" data-i="${i}">+ Create “${esc(c.code)}”</li>`
+    : `<li class="${i === suggIdx ? 'on' : ''}" data-i="${i}"><span class="swatch" style="background:${color(c.code, 65)}"></span>${esc(c.code)}<span class="n">${c.n}</span></li>`).join('');
+  const on = $('#sugg .on'); if (on) on.scrollIntoView({block: 'nearest'});
+}
+$('#sugg').addEventListener('mousedown', e => { const li = e.target.closest('li'); if (li){ e.preventDefault(); applyCode(sugg[+li.dataset.i].code); } });
+$('#codeInput').addEventListener('input', updateSugg);
+$('#codeInput').addEventListener('keydown', e => {
+  if (e.key === 'ArrowDown'){ e.preventDefault(); suggIdx = Math.min(sugg.length - 1, suggIdx + 1); drawSugg(); }
+  else if (e.key === 'ArrowUp'){ e.preventDefault(); suggIdx = Math.max(0, suggIdx - 1); drawSugg(); }
+  else if (e.key === 'Enter'){ e.preventDefault();
+    const typed = $('#codeInput').value.trim();
+    if (suggIdx >= 0 && sugg[suggIdx]) applyCode(sugg[suggIdx].code); else if (typed) applyCode(typed); else closePop(); }
+  else if (e.key === 'Escape') closePop();
+});
+$('#memoInput').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); $('#applyBtn').click(); } else if (e.key === 'Escape') closePop(); });
+$('#applyBtn').onclick = () => { const typed = $('#codeInput').value.trim(); const pick = suggIdx >= 0 && sugg[suggIdx] ? sugg[suggIdx].code : typed; if (pick) applyCode(pick); else $('#codeInput').focus(); };
+$('#doneBtn').onclick = closePop;
+function applyCode(code){
+  code = code.trim(); if (!code || !pending) return;
+  const exists = cur.segments.some(s => s.start === pending.start && s.end === pending.end && s.code === code);
+  if (!exists){
+    cur.segments.push({ id: uid(), start: pending.start, end: pending.end, code, memo: $('#memoInput').value.trim(), created: new Date().toISOString() });
+    window.getSelection().removeAllRanges();
+    render(); renderCodes(); renderSegs(); save();
+  }
+  $('#codeInput').value = ''; $('#memoInput').value = '';
+  renderApplied(); updateSugg(); $('#codeInput').focus();
+}
+function renderApplied(){
+  const el = $('#applied');
+  if (!pending){ el.innerHTML = ''; return; }
+  const here = cur.segments.filter(sameRange);
+  const groups = new Map();
+  cur.segments.filter(s => popOthers.includes(s.id) && !sameRange(s)).forEach(s => {
+    const k = s.start + ':' + s.end; if (!groups.has(k)) groups.set(k, {start: s.start, end: s.end, codes: []}); groups.get(k).codes.push(s.code);
+  });
+  let h = '';
+  if (here.length) h += '<div class="sub">Codes on this passage</div>' + here.map(s =>
+    `<div class="arow"><span class="tag" style="background:${color(s.code)}">${esc(s.code)}</span><span class="amemo" title="${esc(s.memo || '')}">${esc(s.memo || '')}</span>
+     <button class="link" data-memo="${s.id}" title="Edit memo">✎</button><button class="link" data-del="${s.id}" title="Remove this code">✕</button></div>`).join('');
+  if (groups.size) h += '<div class="sub">Overlapping passages · click to code that one</div>' + [...groups.values()].map(g => {
+    const t = cur.text.slice(g.start, g.end);
+    return `<div class="arow other" data-go="${g.start}:${g.end}">${g.codes.map(c => `<span class="tag" style="background:${color(c)}">${esc(c)}</span>`).join('')}<span class="amemo">“${esc(t.length > 50 ? t.slice(0, 50) + '…' : t)}”</span></div>`;
+  }).join('');
+  el.innerHTML = h;
+  el.querySelectorAll('[data-memo]').forEach(b => b.onclick = () => {
+    const s = cur.segments.find(x => x.id === b.dataset.memo); if (!s) return;
+    const v = prompt(`Memo for “${s.code}”:`, s.memo || ''); if (v === null) return;
+    s.memo = v.trim(); renderApplied(); renderSegs(); save();
+  });
+  el.querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
+    cur.segments = cur.segments.filter(x => x.id !== b.dataset.del);
+    render(); renderCodes(); renderSegs(); renderApplied(); updateSugg(); save(); $('#codeInput').focus();
+  });
+  el.querySelectorAll('[data-go]').forEach(d => d.onclick = () => {
+    const [st, en] = d.dataset.go.split(':').map(Number); pending = { start: st, end: en };
+    setPreview(); renderApplied(); updateSugg(); $('#codeInput').focus();
+  });
+}
+document.addEventListener('mousedown', e => {
+  if (!e.target.closest('#pop')) closePop();
+  if (!e.target.closest('#info')) $('#info').hidden = true;
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape'){ $('#info').hidden = true; $('#modal').hidden = true; } });
+
+/* ---------- editing the document text ---------- */
+function growEditor(){
+  const ed = $('#editor'), wrap = $('#docwrap'), top = wrap.scrollTop;
+  ed.style.height = 'auto'; ed.style.height = (ed.scrollHeight + 4) + 'px'; wrap.scrollTop = top;
+}
+function startEdit(){
+  if (!cur || editing) return;
+  closePop(); $('#info').hidden = true;
+  editing = true;
+  const ed = $('#editor'); ed.value = cur.text;
+  $('#doc').hidden = true; ed.hidden = false; $('#editbar').hidden = false; $('#editBtn').disabled = true;
+  growEditor(); ed.focus(); ed.setSelectionRange(0, 0);
+}
+function endEdit(){
+  editing = false;
+  $('#editor').hidden = true; $('#doc').hidden = false; $('#editbar').hidden = true;
+  $('#editBtn').disabled = !cur;
+}
+function editDirty(){ return editing && cur && $('#editor').value.replace(/\r\n?/g, '\n') !== cur.text; }
+function leaveEdit(){
+  if (!editing) return true;
+  if (editDirty() && !confirm('Discard your unsaved text edits?')) return false;
+  endEdit(); return true;
+}
+function saveEdit(){
+  const newText = $('#editor').value.replace(/\r\n?/g, '\n');
+  if (newText === cur.text){ endEdit(); return; }
+  if (!newText.trim()) return alert('The document can’t be empty.');
+  const { segments, removed, changed } = remapSegments(cur.segments, cur.text, newText);
+  if (removed && !confirm(`${removed} highlight(s) cover text you deleted and will be removed. Save anyway?`)) return;
+  cur.text = newText; cur.segments = segments;
+  endEdit(); renderAll();
+  const note = 'Text saved' + (changed ? ` · ${changed} highlight(s) now cover edited text` : '') + (removed ? ` · ${removed} removed` : '');
+  save().then(() => status(note));
+}
+$('#editBtn').onclick = startEdit;
+$('#cancelEdit').onclick = () => leaveEdit();
+$('#saveEdit').onclick = saveEdit;
+$('#editor').addEventListener('input', growEditor);
+$('#editor').addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's'){ e.preventDefault(); saveEdit(); } });
+window.addEventListener('beforeunload', e => { if (editDirty()){ e.preventDefault(); e.returnValue = ''; } });
+
+/* ---------- text diff: keeps highlights attached to the right words ---------- */
+function myers(a, b, maxD = 2000){
+  const n = a.length, m = b.length, max = n + m, off = max + 1;
+  const v = new Int32Array(2 * max + 3); const trace = [];
+  for (let d = 0; d <= max; d++){
+    if (d > maxD) return null;
+    trace.push(v.slice(off - d - 1, off + d + 2));
+    for (let k = -d; k <= d; k += 2){
+      let x = (k === -d || (k !== d && v[off + k - 1] < v[off + k + 1])) ? v[off + k + 1] : v[off + k - 1] + 1;
+      let y = x - k;
+      while (x < n && y < m && a[x] === b[y]){ x++; y++; }
+      v[off + k] = x;
+      if (x >= n && y >= m){
+        const pairs = []; let cx = n, cy = m;
+        for (let dd = d; dd > 0; dd--){
+          const t = trace[dd], at = q => t[q + dd + 1], kk = cx - cy;
+          const down = kk === -dd || (kk !== dd && at(kk - 1) < at(kk + 1));
+          const pk = down ? kk + 1 : kk - 1, px = at(pk), py = px - pk, sx = down ? px : px + 1;
+          while (cx > sx){ cx--; cy--; pairs.push([cx, cy]); }
+          cx = px; cy = py;
+        }
+        while (cx > 0 && cy > 0){ cx--; cy--; pairs.push([cx, cy]); }
+        return pairs.reverse();
+      }
+    }
+  }
+  return [];
+}
+const startsOf = arr => { const r = []; let p = 0; for (const t of arr){ r.push(p); p += t.length; } return r; };
+const tokenize = s => s.match(/\s+|[\p{L}\p{N}_]+|[^\s\p{L}\p{N}_]/gu) || [];
+const linesOf = s => s.match(/[^\n]*\n|[^\n]+$/g) || [];
+function prefixSuffixRuns(a, b, ao, bo, runs){
+  const L = Math.min(a.length, b.length); let p = 0, q = 0;
+  while (p < L && a[p] === b[p]) p++;
+  while (q < L - p && a[a.length - 1 - q] === b[b.length - 1 - q]) q++;
+  if (p) runs.push({o: ao, n: bo, len: p});
+  if (q) runs.push({o: ao + a.length - q, n: bo + b.length - q, len: q});
+}
+function tokenRuns(a, b, ao, bo, runs){
+  const ta = tokenize(a), tb = tokenize(b), pairs = myers(ta, tb);
+  if (!pairs) return prefixSuffixRuns(a, b, ao, bo, runs);
+  const sa = startsOf(ta), sb = startsOf(tb);
+  pairs.forEach(([i, j]) => runs.push({o: ao + sa[i], n: bo + sb[j], len: ta[i].length}));
+}
+function diffRuns(oldT, newT){
+  const runs = [], la = linesOf(oldT), lb = linesOf(newT), pairs = myers(la, lb);
+  if (!pairs){ tokenRuns(oldT, newT, 0, 0, runs); return runs; }
+  const sa = startsOf(la), sb = startsOf(lb); let pi = 0, pj = 0;
+  for (const [i, j] of [...pairs, [la.length, lb.length]]){
+    if (i > pi && j > pj){
+      const os = sa[pi], oe = i < la.length ? sa[i] : oldT.length, ns = sb[pj], ne = j < lb.length ? sb[j] : newT.length;
+      tokenRuns(oldT.slice(os, oe), newT.slice(ns, ne), os, ns, runs);
+    }
+    if (i < la.length) runs.push({o: sa[i], n: sb[j], len: la[i].length});
+    pi = i + 1; pj = j + 1;
+  }
+  return runs;
+}
+function remapSegments(segs, oldT, newT){
+  const runs = diffRuns(oldT, newT), ends = runs.map(r => r.o + r.len);
+  const firstEndAfter = p => { let lo = 0, hi = runs.length; while (lo < hi){ const mid = (lo + hi) >> 1; if (ends[mid] > p) hi = mid; else lo = mid + 1; } return lo; };
+  const mapStart = p => { const i = firstEndAfter(p); if (i === runs.length) return newT.length; const r = runs[i]; return p >= r.o ? r.n + (p - r.o) : r.n; };
+  const mapEnd = p => { const i = firstEndAfter(p - 1);
+    if (i < runs.length && runs[i].o <= p - 1) return runs[i].n + (p - runs[i].o);
+    return i > 0 ? runs[i - 1].n + runs[i - 1].len : 0; };
+  const out = [], seen = new Set(); let removed = 0, changed = 0;
+  for (const s of segs){
+    let st = mapStart(s.start), en = mapEnd(s.end);
+    while (st < en && /\s/.test(newT[st])) st++;
+    while (en > st && /\s/.test(newT[en - 1])) en--;
+    if (en <= st){ // text was moved rather than deleted? re-attach to its new spot
+      const orig = oldT.slice(s.start, s.end).trim(), at = orig ? newT.indexOf(orig) : -1;
+      if (at < 0){ removed++; continue; }
+      st = at; en = at + orig.length;
+    }
+    const key = st + ':' + en + ':' + s.code; if (seen.has(key)) continue; seen.add(key);
+    if (newT.slice(st, en) !== oldT.slice(s.start, s.end)) changed++;
+    out.push({ ...s, start: st, end: en });
+  }
+  return { segments: out, removed, changed };
+}
+
+/* ---------- exports ---------- */
+$('#expCodes').onclick = () => cur && download(`${cur.name}_codes.csv`, toCSV(codesRows(cur)));
+$('#expSegs').onclick = () => cur && download(`${cur.name}_coded_segments.csv`, toCSV(segRows(cur)));
+
+init();
+</script>
+</body>
+</html>
