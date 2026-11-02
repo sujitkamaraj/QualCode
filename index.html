@@ -13,7 +13,8 @@ header h1{font-size:16px;margin:0 10px 0 0;letter-spacing:-.01em}
 #folderName{color:var(--muted);font-size:13px}
 #docTitle{font-weight:600;margin-left:10px}
 .spacer{flex:1}
-.status{color:var(--muted);font-size:12px;min-width:120px;text-align:right}
+.status{color:var(--muted);font-size:12px;white-space:nowrap}
+.status:empty{display:none}
 button{font:inherit;border:1px solid var(--line);background:#fff;border-radius:6px;padding:5px 10px;cursor:pointer;color:var(--ink)}
 button:hover:not(:disabled){border-color:#b9b6ae}
 button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
@@ -90,6 +91,7 @@ h2{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute
   <span id="docTitle"></span>
   <button id="editBtn" disabled>✎ Edit text</button>
   <span class="spacer"></span>
+  <a href="board.html" style="color:var(--accent);text-decoration:none;font-size:13px;margin-right:4px">Board →</a>
   <button id="expCodes" disabled>Export unique codes (CSV)</button>
   <button id="expSegs" disabled>Export codes + text (CSV)</button>
   <span class="status" id="status"></span>

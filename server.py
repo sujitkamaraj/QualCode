@@ -4,6 +4,7 @@
 Run:  python server.py   (or double-click start.bat / start.command)
 Every document is saved as a subfolder next to this file:
     <document name>/document.txt, codes.csv, coded_segments.csv, project.json
+Theme boards (board.html) are saved in boards/<board name>.json
 Uses only the Python standard library.
 """
 import json
@@ -17,7 +18,8 @@ from urllib.parse import urlparse, parse_qs
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PORT = int(os.environ.get("QUALCODE_PORT", "8765"))
-SKIP = {"__pycache__"}
+SKIP = {"__pycache__", "boards"}
+BOARDS = os.path.join(ROOT, "boards")
 
 
 def safe_name(name):
@@ -33,6 +35,10 @@ def doc_dir(name):
     if os.path.dirname(os.path.abspath(path)) != ROOT:
         raise ValueError("Invalid document name")
     return path
+
+
+def board_path(name):
+    return os.path.join(BOARDS, safe_name(name) + ".json")
 
 
 def read(path):
@@ -54,11 +60,15 @@ class Handler(SimpleHTTPRequestHandler):
     def log_message(self, *a):
         pass  # keep the console quiet
 
+    def end_headers(self):
+        # always serve the newest index.html / board.html (no hard refresh needed)
+        self.send_header("Cache-Control", "no-store")
+        super().end_headers()
+
     def send_json(self, obj, code=200):
         body = json.dumps(obj).encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
@@ -85,6 +95,16 @@ class Handler(SimpleHTTPRequestHandler):
                     if os.path.exists(os.path.join(p, "project.json")) or os.path.exists(os.path.join(p, "document.txt")):
                         names.append(n)
                 return self.send_json({"projects": sorted(names, key=str.lower)})
+            if url.path == "/api/boards":
+                names = []
+                if os.path.isdir(BOARDS):
+                    names = [n[:-5] for n in os.listdir(BOARDS) if n.endswith(".json") and not n.startswith(".")]
+                return self.send_json({"boards": sorted(names, key=str.lower)})
+            if url.path == "/api/board":
+                p = board_path(parse_qs(url.query).get("name", [""])[0])
+                if not os.path.exists(p):
+                    return self.send_err(404, "Board not found")
+                return self.send_json({"board": json.loads(read(p))})
             if url.path == "/api/project":
                 d = doc_dir(parse_qs(url.query).get("name", [""])[0])
                 if not os.path.isdir(d):
@@ -107,19 +127,38 @@ class Handler(SimpleHTTPRequestHandler):
             self.path = "/index.html"
         return super().do_GET()
 
+    def read_body(self):
+        return json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))).decode("utf-8"))
+
     def do_POST(self):
-        if urlparse(self.path).path != "/api/save":
-            return self.send_err(404, "Not found")
+        path = urlparse(self.path).path
         try:
-            data = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))).decode("utf-8"))
-            d = doc_dir(data["name"])
-            os.makedirs(d, exist_ok=True)
-            project = data["project"]
-            write(os.path.join(d, "document.txt"), project.get("text", ""))
-            write(os.path.join(d, "project.json"), json.dumps(project, ensure_ascii=False, indent=2))
-            write(os.path.join(d, "codes.csv"), data.get("codes_csv", ""))
-            write(os.path.join(d, "coded_segments.csv"), data.get("segments_csv", ""))
-            return self.send_json({"ok": True})
+            data = self.read_body()
+            if path == "/api/save":
+                d = doc_dir(data["name"])
+                os.makedirs(d, exist_ok=True)
+                project = data["project"]
+                write(os.path.join(d, "document.txt"), project.get("text", ""))
+                write(os.path.join(d, "project.json"), json.dumps(project, ensure_ascii=False, indent=2))
+                write(os.path.join(d, "codes.csv"), data.get("codes_csv", ""))
+                write(os.path.join(d, "coded_segments.csv"), data.get("segments_csv", ""))
+                return self.send_json({"ok": True})
+            if path == "/api/board/save":
+                os.makedirs(BOARDS, exist_ok=True)
+                write(board_path(data["name"]), json.dumps(data["board"], ensure_ascii=False, indent=1))
+                return self.send_json({"ok": True})
+            if path == "/api/board/rename":
+                old, new = board_path(data["old"]), board_path(data["new"])
+                if os.path.exists(new):
+                    return self.send_err(400, "A board with that name already exists")
+                os.replace(old, new)
+                return self.send_json({"ok": True})
+            if path == "/api/board/delete":
+                p = board_path(data["name"])
+                if os.path.exists(p):
+                    os.remove(p)
+                return self.send_json({"ok": True})
+            return self.send_err(404, "Not found")
         except (ValueError, KeyError) as e:
             return self.send_err(400, str(e))
         except OSError as e:

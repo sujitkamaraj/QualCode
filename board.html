@@ -1,0 +1,691 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QualCode Board</title>
+<style>
+:root{--bg:#f6f5f2;--panel:#fff;--ink:#1f2328;--muted:#6b6f76;--line:#e3e1dc;--accent:#2f5d8a;--accent-soft:#e8eef5;--danger:#b3261e}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:var(--bg);display:flex;flex-direction:column;overflow:hidden}
+header{display:flex;align-items:center;gap:6px;padding:8px 12px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap;position:relative;z-index:5}
+header h1{font-size:16px;margin:0 4px 0 0}
+a.back{color:var(--muted);text-decoration:none;font-size:13px;margin-right:4px}
+a.back:hover{color:var(--accent)}
+button,select,input{font:inherit;color:var(--ink)}
+button{border:1px solid var(--line);background:#fff;border-radius:6px;padding:4px 10px;cursor:pointer;white-space:nowrap}
+button:hover{border-color:#b9b6ae}
+button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+button.icon{padding:4px 7px}
+select{border:1px solid var(--line);border-radius:6px;padding:4px 6px;background:#fff;max-width:200px}
+#search{border:1px solid var(--line);border-radius:6px;padding:4px 8px;width:160px}
+.sep{width:1px;height:22px;background:var(--line);margin:0 2px}
+.spacer{flex:1}
+#status{color:var(--muted);font-size:12px;white-space:nowrap}
+#status:empty{display:none}
+.banner{background:#fff6df;border-bottom:1px solid #ecd9a4;padding:8px 16px;font-size:13px}
+.banner[hidden]{display:none}
+
+#viewport{flex:1;position:relative;overflow:hidden;cursor:default;user-select:none;-webkit-user-select:none;background-color:#f1f0ec;
+  background-image:radial-gradient(#cdc9c0 1px,transparent 1px);touch-action:none}
+#viewport.space,#viewport.space *{cursor:grab!important}
+#viewport.panning,#viewport.panning *{cursor:grabbing!important}
+#world{position:absolute;left:0;top:0;transform-origin:0 0;--z:1}
+#frames,#stickies{position:absolute;left:0;top:0}
+.item{position:absolute}
+.sticky{display:flex;align-items:center;justify-content:center;text-align:center;padding:12px;border-radius:3px;
+  box-shadow:0 1px 2px rgba(0,0,0,.12),0 4px 12px rgba(0,0,0,.08);cursor:default;user-select:none;-webkit-user-select:none}
+.sticky .txt{width:100%;max-height:100%;overflow:hidden;white-space:pre-wrap;word-break:break-word;outline:none;line-height:1.25}
+.sticky .badge{position:absolute;right:6px;bottom:3px;font-size:11px;color:rgba(0,0,0,.42);pointer-events:none}
+.frame{border:calc(2px / var(--z)) solid rgba(0,0,0,.13);border-radius:10px;cursor:default}
+.frame .ftitle{position:absolute;left:0;max-width:100%;padding:2px 6px;font-weight:650;line-height:1.3;cursor:move;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;user-select:none;-webkit-user-select:none;outline:none;border-radius:6px}
+.frame .ftitle:hover{background:rgba(0,0,0,.05)}
+[contenteditable]{cursor:text!important;user-select:text!important;-webkit-user-select:text!important}
+.frame .ftitle[contenteditable]{background:#fff;overflow:visible;text-overflow:clip}
+.item.sel{outline:calc(2px / var(--z)) solid var(--accent);outline-offset:calc(3px / var(--z))}
+.handle{position:absolute;right:calc(-7px / var(--z));bottom:calc(-7px / var(--z));width:calc(13px / var(--z));height:calc(13px / var(--z));
+  background:#fff;border:calc(2px / var(--z)) solid var(--accent);border-radius:3px;cursor:nwse-resize;display:none}
+.item.sel .handle{display:block}
+.item.dimmed{opacity:.22}
+.sticky.match{box-shadow:0 0 0 calc(4px / var(--z)) #ff9800}
+#marquee{position:absolute;border:1px solid var(--accent);background:rgba(47,93,138,.08);display:none;pointer-events:none;z-index:3}
+
+.floating{position:absolute;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.10);padding:6px 8px;display:flex;align-items:center;gap:6px;z-index:4;cursor:default}
+#selbar{top:12px;left:50%;transform:translateX(-50%);flex-wrap:wrap;justify-content:center;max-width:calc(100% - 24px)}
+#selbar[hidden]{display:none}
+#selbar{gap:0;row-gap:4px;padding:5px 4px}
+#selbar .grp{display:flex;align-items:center;gap:3px;padding:0 8px;border-left:1px solid var(--line);white-space:nowrap}
+#selbar .grp:first-child{border-left:0}
+#selbar .lbl{margin-right:3px}
+.ib{display:inline-flex;align-items:center;justify-content:center;padding:4px 5px}
+.ib:disabled{opacity:.35;cursor:not-allowed}
+#selbar .lbl{font-size:12px;color:var(--muted)}
+.sw{width:22px;height:22px;border-radius:50%;border:1px solid rgba(0,0,0,.18);cursor:pointer;padding:0}
+.sw.on{outline:2px solid var(--accent);outline-offset:2px}
+#fs{min-width:30px;text-align:center;font-variant-numeric:tabular-nums}
+#zoombar{right:12px;bottom:12px}
+#zoomPct{min-width:46px;text-align:center;font-variant-numeric:tabular-nums;font-size:13px}
+#help{left:12px;bottom:12px;font-size:12px;color:var(--muted);display:block;max-width:440px;line-height:1.55}
+#help b{color:var(--ink);font-weight:600}
+#help[hidden]{display:none}
+</style>
+</head>
+<body>
+<header>
+  <a class="back" href="index.html">← Coding</a>
+  <h1>Board</h1>
+  <select id="boardSel" title="Switch board"></select>
+  <button class="icon" id="newBoard" title="New board">＋</button>
+  <button class="icon" id="renBoard" title="Rename board">✎</button>
+  <button class="icon" id="delBoard" title="Delete board">🗑</button>
+  <span class="sep"></span>
+  <button id="importBtn" class="primary" title="Import codes.csv (or several at once)">Import codes CSV</button>
+  <input type="file" id="file" accept=".csv,text/csv" multiple hidden>
+  <button id="addSticky">+ Sticky</button>
+  <span class="sep"></span>
+  <input id="search" placeholder="Find a code…" autocomplete="off">
+  <span class="spacer"></span>
+  <button id="exportBtn" title="CSV of every sticky: text, color, frequency, position">Export stickies CSV</button>
+  <span id="status"></span>
+</header>
+<div class="banner" id="banner" hidden></div>
+
+<div id="viewport">
+  <div id="world"><div id="frames"></div><div id="stickies"></div></div>
+  <div id="marquee"></div>
+
+  <div id="selbar" class="floating" hidden>
+    <span class="grp" id="swatches" style="gap:5px"></span>
+    <span class="grp"><span class="lbl">Text</span><button class="icon" id="fsDown" title="Smaller text">A−</button><span id="fs">16</span><button class="icon" id="fsUp" title="Larger text">A+</button></span>
+    <span class="grp" data-sticky><span class="lbl">Size</span><button class="icon" data-size="s">S</button><button class="icon" data-size="m">M</button><button class="icon" data-size="l">L</button></span>
+    <span class="grp" data-multi><span class="lbl">Align</span><button class="icon ib" data-align="left" title="Align left"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 1v14"/><rect x="4.5" y="3" width="9" height="3" rx=".5"/><rect x="4.5" y="10" width="5.5" height="3" rx=".5"/></svg></button><button class="icon ib" data-align="center" title="Align centers (horizontal)"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1v14"/><rect x="2.5" y="3" width="11" height="3" rx=".5"/><rect x="4.5" y="10" width="7" height="3" rx=".5"/></svg></button><button class="icon ib" data-align="right" title="Align right"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 1v14"/><rect x="2.5" y="3" width="9" height="3" rx=".5"/><rect x="6" y="10" width="5.5" height="3" rx=".5"/></svg></button><button class="icon ib" data-align="top" title="Align top"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 2h14"/><rect x="3" y="4.5" width="3" height="9" rx=".5"/><rect x="10" y="4.5" width="3" height="5.5" rx=".5"/></svg></button><button class="icon ib" data-align="middle" title="Align middles (vertical)"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 8h14"/><rect x="3" y="2.5" width="3" height="11" rx=".5"/><rect x="10" y="4.5" width="3" height="7" rx=".5"/></svg></button><button class="icon ib" data-align="bottom" title="Align bottom"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 14h14"/><rect x="3" y="2.5" width="3" height="9" rx=".5"/><rect x="10" y="6" width="3" height="5.5" rx=".5"/></svg></button></span>
+    <span class="grp" data-multi><span class="lbl">Distribute</span><button class="icon ib" data-dist="h" title="Distribute horizontally (equal gaps, 3+ notes)"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1.5 1v14M14.5 1v14"/><rect x="6" y="4" width="4" height="8" rx=".5"/></svg></button><button class="icon ib" data-dist="v" title="Distribute vertically (equal gaps, 3+ notes)"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 1.5h14M1 14.5h14"/><rect x="4" y="6" width="8" height="4" rx=".5"/></svg></button></span>
+    <span class="grp"><button class="icon" id="dupBtn" title="Duplicate (Ctrl/⌘+D)">⧉</button><button class="icon" id="delBtn" title="Delete (Del)">🗑</button></span>
+  </div>
+
+  <div id="zoombar" class="floating">
+    <button class="icon" id="zOut" title="Zoom out">−</button>
+    <span id="zoomPct">100%</span>
+    <button class="icon" id="zIn" title="Zoom in">+</button>
+    <button id="zFit" title="Show everything">Fit</button>
+    <button class="icon" id="undoBtn" title="Undo (Ctrl/⌘+Z)">↶</button>
+    <button class="icon" id="redoBtn" title="Redo (Ctrl/⌘+Shift+Z)">↷</button>
+    <button class="icon" id="helpBtn" title="Show tips">?</button>
+  </div>
+
+  <div id="help" class="floating">
+    <b>Select:</b> drag a box on empty canvas (Shift adds to the selection) · or click / Shift+click stickies<br>
+    <b>Move around:</b> trackpad two-finger swipe · mouse right-drag or wheel-button drag · or Space+drag<br>
+    <b>Zoom:</b> pinch, Ctrl/⌘ + scroll, or the − / + buttons<br>
+    <b>New sticky:</b> double-click empty space · <b>Edit:</b> double-click a sticky (Enter to finish)<br>
+    <b>Resize:</b> drag the corner square
+    <button class="icon" id="helpClose" style="margin-left:6px;padding:0 6px">✕</button>
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const vp = $('#viewport'), world = $('#world');
+const API = location.protocol.startsWith('http');
+const COLORS       = ['#fff59d', '#ffcc80', '#f8bbd0', '#e1bee7', '#b3e5fc', '#c8e6c9', '#e0e0e0', '#ffffff'];
+const FRAME_COLORS = ['#fffbe0', '#fff1e0', '#fde8f0', '#f4e9f7', '#e5f5fd', '#ebf6ec', '#f3f3f3', '#ffffff'];
+const COLOR_NAMES  = ['yellow', 'orange', 'pink', 'purple', 'blue', 'green', 'gray', 'white'];
+const SIZES = { s: [130, 85], m: [170, 110], l: [240, 160] };
+
+let boards = [], boardName = null, board = null;
+let sel = new Set(), editingId = null, drag = null, spaceDown = false;
+let undoStack = [], redoStack = [];
+const els = new Map();
+
+/* ---------- helpers ---------- */
+const uid = () => 'i' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const safeName = n => String(n || '').replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim().replace(/^\.+/, '').slice(0, 80);
+const get = id => board.items.find(i => i.id === id);
+const V = () => board.view;
+function status(m){ $('#status').textContent = m; }
+function colorIndex(it){ return (it.type === 'frame' ? FRAME_COLORS : COLORS).indexOf(it.color); }
+function maxZ(){ return board.items.reduce((m, i) => Math.max(m, i.z || 0), 0); }
+function center(it){ return { x: it.x + it.w / 2, y: it.y + it.h / 2 }; }
+function inside(p, f){ return p.x >= f.x && p.x <= f.x + f.w && p.y >= f.y && p.y <= f.y + f.h; }
+
+/* ---------- CSV ---------- */
+function csvCell(v){ v = v == null ? '' : String(v); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
+function toCSV(rows){ return '﻿' + rows.map(r => r.map(csvCell).join(',')).join('\r\n') + '\r\n'; }
+function parseCSV(s){
+  s = s.replace(/^﻿/, ''); const rows = []; let row = [], f = '', q = false;
+  for (let i = 0; i < s.length; i++){
+    const c = s[i];
+    if (q){ if (c === '"'){ if (s[i + 1] === '"'){ f += '"'; i++; } else q = false; } else f += c; }
+    else if (c === '"') q = true;
+    else if (c === ','){ row.push(f); f = ''; }
+    else if (c === '\n' || c === '\r'){ if (c === '\r' && s[i + 1] === '\n') i++; row.push(f); rows.push(row); row = []; f = ''; }
+    else f += c;
+  }
+  if (f !== '' || row.length){ row.push(f); rows.push(row); }
+  return rows.filter(r => r.some(x => x.trim() !== ''));
+}
+function download(name, text){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8' }));
+  a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+/* ---------- storage (server.py, or this browser as a fallback) ---------- */
+async function api(path, body){
+  const r = await fetch(path, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {});
+  if (!r.ok) throw new Error(await r.text() || r.statusText);
+  return r.json();
+}
+function lsB(){ try { return JSON.parse(localStorage.getItem('qualcode_boards') || '{}'); } catch(e){ return {}; } }
+function lsSet(all){ try { localStorage.setItem('qualcode_boards', JSON.stringify(all)); } catch(e){} }
+const Boards = {
+  async list(){ return API ? (await api('api/boards')).boards : Object.keys(lsB()).sort((a, b) => a.localeCompare(b)); },
+  async load(n){ return API ? (await api('api/board?name=' + encodeURIComponent(n))).board : lsB()[n]; },
+  async save(n, b){ if (API) return api('api/board/save', { name: n, board: b }); const all = lsB(); all[n] = b; lsSet(all); },
+  async rename(o, n){ if (API) return api('api/board/rename', { old: o, new: n }); const all = lsB(); all[n] = all[o]; delete all[o]; lsSet(all); },
+  async remove(n){ if (API) return api('api/board/delete', { name: n }); const all = lsB(); delete all[n]; lsSet(all); }
+};
+let saveTimer = null, saving = Promise.resolve();
+function scheduleSave(){ clearTimeout(saveTimer); status('Saving…'); saveTimer = setTimeout(flush, 500); }
+function flush(){
+  clearTimeout(saveTimer); saveTimer = null;
+  if (!boardName || !board) return saving;
+  const n = boardName, data = JSON.parse(JSON.stringify({ ...board, saved: new Date().toISOString() }));
+  saving = saving.then(() => Boards.save(n, data))
+    .then(() => status('Saved ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })))
+    .catch(e => { status('Save failed'); alert('Could not save the board — is server.py still running?\n\n' + e.message); });
+  return saving;
+}
+window.addEventListener('beforeunload', () => {
+  if (saveTimer && API && board){
+    navigator.sendBeacon('api/board/save', new Blob([JSON.stringify({ name: boardName, board })], { type: 'application/json' }));
+  } else if (saveTimer) flush();
+});
+let viewTimer = null;
+function saveViewSoon(){ clearTimeout(viewTimer); viewTimer = setTimeout(scheduleSave, 800); }
+
+/* ---------- boards ---------- */
+function normalizeBoard(b){
+  b = b || {};
+  return { items: Array.isArray(b.items) ? b.items : [], view: b.view && b.view.zoom ? b.view : { x: 80, y: 80, zoom: 1 }, created: b.created || new Date().toISOString() };
+}
+async function refreshBoards(selectName){
+  boards = await Boards.list();
+  $('#boardSel').innerHTML = boards.map(n => `<option>${n.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))}</option>`).join('');
+  if (selectName) $('#boardSel').value = selectName;
+}
+async function openBoard(name){
+  if (editingId) finishEdit();
+  if (saveTimer) await flush(); else await saving;
+  board = normalizeBoard(await Boards.load(name));
+  boardName = name; sel = new Set(); undoStack = []; redoStack = [];
+  try { localStorage.setItem('qualcode_board_last', name); } catch(e){}
+  $('#boardSel').value = name;
+  render(); applyView();
+  if (!board.view.saved && board.items.length) fit();
+  status('');
+}
+async function createBoard(name){
+  name = safeName(name);
+  if (!name) return;
+  if (boards.includes(name)) return alert('A board with that name already exists.');
+  await Boards.save(name, normalizeBoard({}));
+  await refreshBoards(name); await openBoard(name);
+}
+$('#boardSel').onchange = e => openBoard(e.target.value);
+$('#newBoard').onclick = () => { const n = prompt('Name for the new board:', 'Themes ' + (boards.length + 1)); if (n) createBoard(n); };
+$('#renBoard').onclick = async () => {
+  const n = safeName(prompt('Rename board:', boardName) || '');
+  if (!n || n === boardName) return;
+  if (boards.includes(n)) return alert('A board with that name already exists.');
+  await flush(); await Boards.rename(boardName, n); boardName = n;
+  try { localStorage.setItem('qualcode_board_last', n); } catch(e){}
+  await refreshBoards(n);
+};
+$('#delBoard').onclick = async () => {
+  if (!confirm(`Delete the board “${boardName}”? This can’t be undone.`)) return;
+  clearTimeout(saveTimer); saveTimer = null; await saving;
+  await Boards.remove(boardName); boardName = null; board = null;
+  await refreshBoards();
+  if (!boards.length) await createBoard('Themes'); else await openBoard(boards[0]);
+};
+
+/* ---------- view: pan & zoom ---------- */
+function applyView(){
+  const v = V();
+  world.style.transform = `translate(${v.x}px, ${v.y}px) scale(${v.zoom})`;
+  world.style.setProperty('--z', v.zoom);
+  const g = 24 * v.zoom;
+  vp.style.backgroundSize = `${g}px ${g}px`;
+  vp.style.backgroundPosition = `${v.x}px ${v.y}px`;
+  vp.style.backgroundImage = v.zoom < 0.35 ? 'none' : '';
+  $('#zoomPct').textContent = Math.round(v.zoom * 100) + '%';
+}
+function toWorld(cx, cy){ const r = vp.getBoundingClientRect(), v = V(); return { x: (cx - r.left - v.x) / v.zoom, y: (cy - r.top - v.y) / v.zoom }; }
+function zoomAt(factor, cx, cy){
+  const r = vp.getBoundingClientRect(), v = V();
+  if (cx == null){ cx = r.left + r.width / 2; cy = r.top + r.height / 2; }
+  const px = cx - r.left, py = cy - r.top, nz = clamp(v.zoom * factor, 0.08, 4), k = nz / v.zoom;
+  v.x = px - (px - v.x) * k; v.y = py - (py - v.y) * k; v.zoom = nz; v.saved = true;
+  applyView(); saveViewSoon();
+}
+function bbox(items){
+  if (!items.length) return null;
+  let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+  items.forEach(i => { const top = i.type === 'frame' ? i.y - (i.fontSize || 18) * 1.3 - 14 : i.y;
+    x1 = Math.min(x1, i.x); y1 = Math.min(y1, top); x2 = Math.max(x2, i.x + i.w); y2 = Math.max(y2, i.y + i.h); });
+  return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
+}
+function fit(items = board.items){
+  const b = bbox(items), r = vp.getBoundingClientRect(), v = V();
+  if (!b){ v.x = 80; v.y = 80; v.zoom = 1; applyView(); return; }
+  const pad = 60, z = clamp(Math.min((r.width - pad * 2) / b.w, (r.height - pad * 2) / b.h), 0.08, 1.5);
+  v.zoom = z; v.x = (r.width - b.w * z) / 2 - b.x * z; v.y = (r.height - b.h * z) / 2 - b.y * z; v.saved = true;
+  applyView(); saveViewSoon();
+}
+function viewCenter(){ const r = vp.getBoundingClientRect(); return toWorld(r.left + r.width / 2, r.top + r.height / 2); }
+vp.addEventListener('wheel', e => {
+  if (e.target.closest('.floating')) return;
+  e.preventDefault();
+  const unit = e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? 400 : 1;
+  let dx = e.deltaX * unit, dy = e.deltaY * unit;
+  if (e.ctrlKey || e.metaKey){               // trackpad pinch, or Ctrl/⌘ + wheel = zoom
+    zoomAt(Math.exp(-dy * (e.ctrlKey && Math.abs(dy) < 50 ? 0.01 : 0.0015)), e.clientX, e.clientY);
+    return;
+  }
+  if (e.shiftKey && !dx){ dx = dy; dy = 0; } // Shift + wheel = sideways
+  const v = V(); v.x -= dx; v.y -= dy; v.saved = true; applyView(); saveViewSoon();
+}, { passive: false });
+$('#zIn').onclick = () => zoomAt(1.25);
+$('#zOut').onclick = () => zoomAt(0.8);
+$('#zFit').onclick = () => fit();
+
+/* ---------- rendering ---------- */
+function render(){
+  const fl = $('#frames'), sl = $('#stickies');
+  fl.replaceChildren(); sl.replaceChildren(); els.clear();
+  const frames = board.items.filter(i => i.type === 'frame').sort((a, b) => b.w * b.h - a.w * a.h);
+  const stickies = board.items.filter(i => i.type === 'sticky').sort((a, b) => (a.z || 0) - (b.z || 0));
+  for (const it of frames){ const el = makeEl(it); fl.appendChild(el); els.set(it.id, el); }
+  for (const it of stickies){ const el = makeEl(it); sl.appendChild(el); els.set(it.id, el); }
+  updateSelUI(); applySearch();
+}
+function makeEl(it){
+  const el = document.createElement('div');
+  el.className = 'item ' + it.type; el.dataset.id = it.id;
+  el.style.background = it.color;
+  const t = document.createElement('div');
+  t.className = it.type === 'sticky' ? 'txt' : 'ftitle';
+  el.appendChild(t);
+  if (it.type === 'sticky' && it.freq){ const b = document.createElement('div'); b.className = 'badge'; el.appendChild(b); }
+  const h = document.createElement('div'); h.className = 'handle'; el.appendChild(h);
+  paint(el, it);
+  return el;
+}
+function paint(el, it){
+  el.style.left = it.x + 'px'; el.style.top = it.y + 'px'; el.style.width = it.w + 'px'; el.style.height = it.h + 'px';
+  el.style.background = it.color;
+  const t = el.querySelector('.txt,.ftitle');
+  t.style.fontSize = it.fontSize + 'px';
+  if (it.type === 'frame') t.style.top = -(it.fontSize * 1.3 + 12) + 'px';
+  if (!t.isContentEditable) t.textContent = it.type === 'frame' ? (it.text || 'Untitled theme') : it.text;
+  const b = el.querySelector('.badge'); if (b){ b.textContent = '×' + it.freq; b.title = `Used ${it.freq} time(s) in coding`; }
+}
+function place(it){ const el = els.get(it.id); if (el){ el.style.left = it.x + 'px'; el.style.top = it.y + 'px'; el.style.width = it.w + 'px'; el.style.height = it.h + 'px'; } }
+
+/* ---------- selection toolbar ---------- */
+$('#swatches').innerHTML = COLORS.map((c, i) => `<button class="sw" data-ci="${i}" style="background:${c}" title="${COLOR_NAMES[i]}"></button>`).join('');
+function selected(){ return [...sel].map(get).filter(Boolean); }
+function updateSelUI(){
+  els.forEach((el, id) => el.classList.toggle('sel', sel.has(id)));
+  const items = selected();
+  $('#selbar').hidden = !items.length;
+  if (!items.length) return;
+  const ci = colorIndex(items[0]), same = items.every(i => colorIndex(i) === ci);
+  document.querySelectorAll('.sw').forEach(b => b.classList.toggle('on', same && +b.dataset.ci === ci));
+  $('#fs').textContent = items[0].fontSize;
+  const anySticky = items.some(i => i.type === 'sticky');
+  document.querySelectorAll('[data-sticky]').forEach(e => e.style.display = anySticky ? '' : 'none');
+  document.querySelectorAll('[data-multi]').forEach(e => e.style.display = items.length > 1 ? '' : 'none');
+  document.querySelectorAll('[data-dist]').forEach(b => b.disabled = items.length < 3);
+}
+function clearSel(){ if (sel.size){ sel = new Set(); updateSelUI(); } }
+$('#swatches').addEventListener('click', e => {
+  const b = e.target.closest('.sw'); if (!b) return;
+  const i = +b.dataset.ci; pushUndo();
+  selected().forEach(it => { it.color = (it.type === 'frame' ? FRAME_COLORS : COLORS)[i]; paint(els.get(it.id), it); });
+  updateSelUI(); scheduleSave();
+});
+function bumpFont(d){
+  pushUndo();
+  selected().forEach(it => { it.fontSize = clamp(it.fontSize + d, 8, 96); paint(els.get(it.id), it); });
+  updateSelUI(); scheduleSave();
+}
+$('#fsUp').onclick = () => bumpFont(2);
+$('#fsDown').onclick = () => bumpFont(-2);
+document.querySelectorAll('[data-size]').forEach(b => b.onclick = () => {
+  const [w, h] = SIZES[b.dataset.size]; pushUndo();
+  selected().filter(i => i.type === 'sticky').forEach(it => { const c = center(it); it.w = w; it.h = h; it.x = c.x - w / 2; it.y = c.y - h / 2; place(it); });
+  scheduleSave();
+});
+document.querySelectorAll('[data-align]').forEach(b => b.onclick = () => {
+  const items = selected(); if (items.length < 2) return;
+  const bb = bbox(items.map(i => ({ ...i, type: 'sticky' }))), a = b.dataset.align;
+  pushUndo();
+  items.forEach(it => {
+    if (a === 'left') it.x = bb.x;
+    if (a === 'right') it.x = bb.x + bb.w - it.w;
+    if (a === 'center') it.x = bb.x + bb.w / 2 - it.w / 2;
+    if (a === 'top') it.y = bb.y;
+    if (a === 'bottom') it.y = bb.y + bb.h - it.h;
+    if (a === 'middle') it.y = bb.y + bb.h / 2 - it.h / 2;
+    it.x = Math.round(it.x); it.y = Math.round(it.y); place(it);
+  });
+  scheduleSave();
+});
+document.querySelectorAll('[data-dist]').forEach(b => b.onclick = () => {
+  const items = selected(); if (items.length < 3) return;
+  const horiz = b.dataset.dist === 'h', pos = horiz ? 'x' : 'y', size = horiz ? 'w' : 'h';
+  items.sort((p, q) => (p[pos] + p[size] / 2) - (q[pos] + q[size] / 2));
+  const first = items[0], last = items[items.length - 1];
+  const span = (last[pos] + last[size]) - first[pos], total = items.reduce((t, i) => t + i[size], 0);
+  let gap = (span - total) / (items.length - 1);
+  if (gap < 16) gap = 16;   // notes would overlap: spread them out side by side instead
+  pushUndo();
+  let at = first[pos];
+  items.forEach(it => { it[pos] = Math.round(at); at += it[size] + gap; place(it); });
+  scheduleSave();
+});
+$('#dupBtn').onclick = () => duplicateSel();
+$('#delBtn').onclick = () => deleteSel();
+
+/* ---------- creating, deleting, undo ---------- */
+function pushUndo(){
+  undoStack.push(JSON.stringify(board.items)); if (undoStack.length > 150) undoStack.shift();
+  redoStack = [];
+}
+function undo(){ if (!undoStack.length) return; finishEdit(); redoStack.push(JSON.stringify(board.items)); board.items = JSON.parse(undoStack.pop()); afterHistory(); }
+function redo(){ if (!redoStack.length) return; finishEdit(); undoStack.push(JSON.stringify(board.items)); board.items = JSON.parse(redoStack.pop()); afterHistory(); }
+function afterHistory(){ sel = new Set([...sel].filter(id => get(id))); render(); scheduleSave(); }
+$('#undoBtn').onclick = undo; $('#redoBtn').onclick = redo;
+
+function newSticky(x, y, text = '', extra = {}){
+  const [w, h] = SIZES.m;
+  return { id: uid(), type: 'sticky', x, y, w, h, text, color: COLORS[0], fontSize: 16, z: maxZ() + 1, ...extra };
+}
+function addStickyAt(p){
+  pushUndo();
+  const it = newSticky(p.x - SIZES.m[0] / 2, p.y - SIZES.m[1] / 2);
+  board.items.push(it); render(); sel = new Set([it.id]); updateSelUI(); scheduleSave();
+  startEdit(it.id);
+}
+$('#addSticky').onclick = () => {
+  const c = viewCenter(), n = board.items.filter(i => i.type === 'sticky').length % 6;
+  addStickyAt({ x: c.x + n * 20, y: c.y + n * 20 });
+};
+function deleteSel(){
+  if (!sel.size) return;
+  pushUndo(); board.items = board.items.filter(i => !sel.has(i.id)); sel = new Set(); render(); scheduleSave();
+}
+function duplicateSel(){
+  const items = selected(); if (!items.length) return;
+  pushUndo(); let z = maxZ();
+  const copies = items.map(i => ({ ...i, id: uid(), x: i.x + 24, y: i.y + 24, z: i.type === 'sticky' ? ++z : 0 }));
+  board.items.push(...copies); sel = new Set(copies.map(c => c.id)); render(); scheduleSave();
+}
+
+/* ---------- editing text ---------- */
+function startEdit(id){
+  const it = get(id), el = els.get(id); if (!it || !el) return;
+  if (editingId) finishEdit();
+  const t = el.querySelector('.txt,.ftitle');
+  editingId = id; sel = new Set([id]); updateSelUI();
+  t.textContent = it.text;
+  t.setAttribute('contenteditable', 'plaintext-only');
+  if (t.contentEditable !== 'plaintext-only') t.setAttribute('contenteditable', 'true');
+  t.focus();
+  const r = document.createRange(); r.selectNodeContents(t); const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+  t.onkeydown = ev => { ev.stopPropagation(); if ((ev.key === 'Enter' && !ev.shiftKey) || ev.key === 'Escape'){ ev.preventDefault(); finishEdit(); } };
+  t.onpaste = ev => { ev.preventDefault(); document.execCommand('insertText', false, ev.clipboardData.getData('text/plain')); };
+  t.onblur = () => finishEdit();
+}
+function finishEdit(){
+  if (!editingId) return;
+  const id = editingId; editingId = null;
+  const it = get(id), el = els.get(id); if (!it || !el) return;
+  const t = el.querySelector('.txt,.ftitle');
+  t.onblur = t.onkeydown = t.onpaste = null;
+  const v = t.innerText.replace(/ /g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+  t.removeAttribute('contenteditable'); getSelection().removeAllRanges();
+  if (v !== it.text){ pushUndo(); it.text = v; scheduleSave(); }
+  paint(el, it); applySearch();
+}
+
+/* ---------- mouse: pan, select, move, resize ---------- */
+vp.addEventListener('pointerdown', e => {
+  if (e.target.closest('.floating')) return;
+  if (editingId && e.target.closest('[contenteditable]')) return;
+  if (editingId) finishEdit();
+  if (e.button === 1 || e.button === 2 || (e.button === 0 && spaceDown)){ e.preventDefault(); return beginPan(e, true); }
+  if (e.button !== 0) return;
+  const handle = e.target.closest('.handle'), itemEl = e.target.closest('.item');
+  const frameBody = itemEl && itemEl.classList.contains('frame') && !handle && !e.target.closest('.ftitle');
+  if (!itemEl) return beginMarquee(e);
+  if (frameBody && e.shiftKey) return beginMarquee(e);   // Shift+drag inside a theme still box-selects
+  const id = itemEl.dataset.id;
+  if (handle) return beginResize(e, id);
+  if (e.shiftKey){
+    sel.has(id) ? sel.delete(id) : sel.add(id); updateSelUI();
+    if (!sel.has(id)) return;
+  } else if (!sel.has(id)){ sel = new Set([id]); updateSelUI(); }
+  beginMove(e, id);
+});
+function capture(e){ try { vp.setPointerCapture(e.pointerId); } catch(err){} }
+function beginPan(e, keepSel){
+  const v = V(); drag = { type: 'pan', sx: e.clientX, sy: e.clientY, vx: v.x, vy: v.y, moved: false, keepSel, shift: e.shiftKey };
+  vp.classList.add('panning'); capture(e);
+}
+function beginMarquee(e){
+  e.preventDefault(); getSelection().removeAllRanges();
+  const r = vp.getBoundingClientRect();
+  drag = { type: 'marquee', sx: e.clientX - r.left, sy: e.clientY - r.top, base: e.shiftKey ? new Set(sel) : new Set(), moved: false, shift: e.shiftKey };
+  capture(e);
+}
+function beginMove(e, id){
+  // moving a theme frame carries the stickies (and smaller frames) inside it
+  const ids = new Set(sel);
+  selected().filter(i => i.type === 'frame').forEach(f => board.items.forEach(o => {
+    if (o.id === f.id) return;
+    if (o.type === 'sticky' ? inside(center(o), f) : (o.x >= f.x && o.y >= f.y && o.x + o.w <= f.x + f.w && o.y + o.h <= f.y + f.h)) ids.add(o.id);
+  }));
+  const start = new Map(); ids.forEach(i => { const it = get(i); if (it) start.set(i, { x: it.x, y: it.y }); });
+  drag = { type: 'move', sx: e.clientX, sy: e.clientY, start, moved: false, clicked: id, shift: e.shiftKey };
+  capture(e);
+}
+function beginResize(e, id){
+  const it = get(id); sel = new Set([id]); updateSelUI();
+  drag = { type: 'resize', id, sx: e.clientX, sy: e.clientY, w: it.w, h: it.h, moved: false };
+  capture(e);
+}
+vp.addEventListener('pointermove', e => {
+  if (!drag) return;
+  const z = V().zoom, dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
+  if (drag.type === 'pan'){
+    if (Math.abs(dx) + Math.abs(dy) > 2) drag.moved = true;
+    V().x = drag.vx + dx; V().y = drag.vy + dy; applyView();
+  } else if (drag.type === 'move'){
+    if (!drag.moved){
+      if (Math.abs(dx) + Math.abs(dy) < 3) return;
+      drag.moved = true; pushUndo();
+      let mz = maxZ();   // bring dragged stickies to the front
+      [...drag.start.keys()].map(get).filter(i => i && i.type === 'sticky').sort((a, b) => (a.z || 0) - (b.z || 0)).forEach(i => {
+        i.z = ++mz; const el = els.get(i.id); el.parentNode.appendChild(el);
+      });
+    }
+    drag.start.forEach((p, id) => { const it = get(id); if (it){ it.x = Math.round(p.x + dx / z); it.y = Math.round(p.y + dy / z); place(it); } });
+  } else if (drag.type === 'resize'){
+    if (!drag.moved){ if (Math.abs(dx) + Math.abs(dy) < 2) return; drag.moved = true; pushUndo(); }
+    const it = get(drag.id), min = it.type === 'frame' ? [160, 100] : [60, 40];
+    it.w = Math.round(Math.max(min[0], drag.w + dx / z)); it.h = Math.round(Math.max(min[1], drag.h + dy / z)); place(it);
+  } else if (drag.type === 'marquee'){
+    const r = vp.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+    if (!drag.moved){ if (Math.abs(x - drag.sx) + Math.abs(y - drag.sy) < 3) return; drag.moved = true; }
+    const m = $('#marquee'), x1 = Math.min(x, drag.sx), y1 = Math.min(y, drag.sy), w = Math.abs(x - drag.sx), h = Math.abs(y - drag.sy);
+    Object.assign(m.style, { display: 'block', left: x1 + 'px', top: y1 + 'px', width: w + 'px', height: h + 'px' });
+    const a = toWorld(r.left + x1, r.top + y1), b = toWorld(r.left + x1 + w, r.top + y1 + h);
+    sel = new Set(drag.base);
+    board.items.forEach(i => {
+      const hit = i.type === 'sticky'
+        ? i.x < b.x && i.x + i.w > a.x && i.y < b.y && i.y + i.h > a.y
+        : i.x >= a.x && i.y >= a.y && i.x + i.w <= b.x && i.y + i.h <= b.y;
+      if (hit) sel.add(i.id);
+    });
+    updateSelUI();
+  }
+});
+function endDrag(){
+  if (!drag) return;
+  const d = drag; drag = null;
+  vp.classList.remove('panning'); $('#marquee').style.display = 'none';
+  if (d.type === 'pan'){ if (d.moved){ V().saved = true; saveViewSoon(); } else if (!d.keepSel && !d.shift) clearSel(); }
+  else if (d.type === 'move'){
+    if (d.moved) scheduleSave();
+    else if (!d.shift && sel.size > 1){ sel = new Set([d.clicked]); updateSelUI(); }
+  }
+  else if (d.type === 'resize' && d.moved) scheduleSave();
+  else if (d.type === 'marquee' && !d.moved && !d.shift) clearSel();   // plain click on empty canvas
+}
+vp.addEventListener('pointerup', endDrag);
+vp.addEventListener('contextmenu', e => { if (!e.target.closest('[contenteditable]')) e.preventDefault(); });
+vp.addEventListener('auxclick', e => { if (e.button === 1) e.preventDefault(); });
+vp.addEventListener('pointercancel', endDrag);
+vp.addEventListener('dblclick', e => {
+  if (e.target.closest('.floating')) return;
+  const hit = document.elementFromPoint(e.clientX, e.clientY) || e.target;
+  const itemEl = hit.closest && hit.closest('.item');
+  if (itemEl && (itemEl.classList.contains('sticky') || hit.closest('.ftitle'))) return startEdit(itemEl.dataset.id);
+  if (hit.closest && hit.closest('.handle')) return;
+  addStickyAt(toWorld(e.clientX, e.clientY));
+});
+
+/* ---------- keyboard ---------- */
+document.addEventListener('keydown', e => {
+  if (editingId || e.target.matches('input,select,textarea,[contenteditable]')) return;
+  const mod = e.ctrlKey || e.metaKey, k = e.key.toLowerCase();
+  if (e.key === ' '){ e.preventDefault(); if (!spaceDown){ spaceDown = true; vp.classList.add('space'); } }
+  else if ((e.key === 'Delete' || e.key === 'Backspace') && sel.size){ e.preventDefault(); deleteSel(); }
+  else if (mod && k === 'z'){ e.preventDefault(); e.shiftKey ? redo() : undo(); }
+  else if (mod && k === 'y'){ e.preventDefault(); redo(); }
+  else if (mod && k === 'd'){ e.preventDefault(); duplicateSel(); }
+  else if (mod && k === 'a'){ e.preventDefault(); sel = new Set(board.items.map(i => i.id)); updateSelUI(); }
+  else if (mod && (k === '=' || k === '+')){ e.preventDefault(); zoomAt(1.25); }
+  else if (mod && k === '-'){ e.preventDefault(); zoomAt(0.8); }
+  else if (mod && k === '0'){ e.preventDefault(); fit(); }
+  else if (e.key === 'Escape') clearSel();
+  else if (e.key === 'Enter' && sel.size === 1){ e.preventDefault(); startEdit([...sel][0]); }
+  else if (e.key.startsWith('Arrow') && sel.size){
+    e.preventDefault(); const s = e.shiftKey ? 20 : 2; pushUndo();
+    selected().forEach(it => { if (k === 'arrowleft') it.x -= s; if (k === 'arrowright') it.x += s; if (k === 'arrowup') it.y -= s; if (k === 'arrowdown') it.y += s; place(it); });
+    scheduleSave();
+  }
+});
+document.addEventListener('keyup', e => { if (e.key === ' '){ spaceDown = false; vp.classList.remove('space'); } });
+window.addEventListener('blur', () => { spaceDown = false; vp.classList.remove('space'); });
+
+/* ---------- search ---------- */
+function applySearch(){
+  const q = $('#search').value.trim().toLowerCase();
+  els.forEach((el, id) => {
+    const it = get(id); if (!it) return;
+    const m = q && it.type === 'sticky' && (it.text || '').toLowerCase().includes(q);
+    el.classList.toggle('match', !!m);
+    el.classList.toggle('dimmed', !!q && it.type === 'sticky' && !m);
+  });
+}
+$('#search').addEventListener('input', applySearch);
+$('#search').addEventListener('keydown', e => {
+  if (e.key === 'Escape'){ e.target.value = ''; applySearch(); e.target.blur(); }
+  if (e.key !== 'Enter') return;
+  const q = e.target.value.trim().toLowerCase(); if (!q) return;
+  const hits = board.items.filter(i => i.type === 'sticky' && (i.text || '').toLowerCase().includes(q));
+  if (!hits.length) return status('No match');
+  const i = (+(e.target.dataset.n || 0)) % hits.length; e.target.dataset.n = i + 1;
+  const it = hits[i], r = vp.getBoundingClientRect(), v = V(), c = center(it);
+  v.x = r.width / 2 - c.x * v.zoom; v.y = r.height / 2 - c.y * v.zoom; applyView();
+  sel = new Set([it.id]); updateSelUI(); status(`Match ${i + 1} of ${hits.length}`);
+});
+$('#search').addEventListener('input', e => { e.target.dataset.n = 0; });
+
+/* ---------- import codes CSV ---------- */
+$('#importBtn').onclick = () => $('#file').click();
+$('#file').onchange = async e => {
+  const files = [...e.target.files]; e.target.value = '';
+  if (!files.length) return;
+  const counts = new Map(); let hasFreq = false;
+  for (const f of files){
+    const rows = parseCSV(await f.text()); if (!rows.length) continue;
+    const head = rows[0].map(h => h.trim().toLowerCase());
+    let ci = head.indexOf('code'), fi = head.indexOf('frequency'), body = rows.slice(1);
+    if (ci < 0){ ci = 0; fi = -1; body = rows; }       // no header: first column holds the codes
+    else hasFreq = true;                               // codes.csv (frequency) or coded_segments.csv (one row per use)
+    for (const r of body){
+      const code = (r[ci] || '').trim(); if (!code) continue;
+      const key = code.toLowerCase(), n = fi >= 0 ? (parseInt(r[fi]) || 0) : 1;
+      const prev = counts.get(key); counts.set(key, { code: prev ? prev.code : code, n: (prev ? prev.n : 0) + n });
+    }
+  }
+  const existing = new Set(board.items.filter(i => i.type === 'sticky').map(i => (i.text || '').trim().toLowerCase()));
+  const fresh = [...counts.entries()].filter(([k]) => !existing.has(k)).map(([, v]) => v).sort((a, b) => a.code.localeCompare(b.code));
+  const skipped = counts.size - fresh.length;
+  if (!fresh.length) return alert(counts.size ? `All ${counts.size} code(s) are already on this board.` : 'No codes found in that file.');
+  pushUndo();
+  const [w, h] = SIZES.m, gap = 20, cols = Math.ceil(Math.sqrt(fresh.length * 1.6));
+  const b = bbox(board.items), c = viewCenter();
+  const x0 = b ? b.x + b.w + 120 : c.x - (cols * (w + gap)) / 2, y0 = b ? b.y : c.y - 150;
+  let z = maxZ();
+  const added = fresh.map((v, i) => newSticky(x0 + (i % cols) * (w + gap), y0 + Math.floor(i / cols) * (h + gap), v.code,
+    { z: ++z, ...(hasFreq && v.n ? { freq: v.n } : {}) }));
+  board.items.push(...added);
+  sel = new Set(added.map(a => a.id));
+  render(); fit(added); scheduleSave();
+  status(`Added ${added.length} sticky note(s)` + (skipped ? ` · ${skipped} already on board` : ''));
+};
+
+/* ---------- export stickies ---------- */
+$('#exportBtn').onclick = () => {
+  const rows = board.items.filter(i => i.type === 'sticky' && (i.text || '').trim())
+    .map(s => [s.text, COLOR_NAMES[COLORS.indexOf(s.color)] || s.color, s.freq || '', Math.round(s.x), Math.round(s.y), Math.round(s.w), Math.round(s.h), s.fontSize])
+    .sort((a, b) => COLOR_NAMES.indexOf(a[1]) - COLOR_NAMES.indexOf(b[1]) || a[4] - b[4] || a[3] - b[3]);
+  download(`${boardName}_stickies.csv`, toCSV([['text', 'color', 'frequency', 'x', 'y', 'width', 'height', 'font_size'], ...rows]));
+};
+
+/* ---------- help ---------- */
+function showHelp(on){ $('#help').hidden = !on; try { localStorage.setItem('qualcode_board_help', on ? '1' : '0'); } catch(e){} }
+$('#helpClose').onclick = () => showHelp(false);
+$('#helpBtn').onclick = () => showHelp($('#help').hidden);
+try { if (localStorage.getItem('qualcode_board_help') === '0') $('#help').hidden = true; } catch(e){}
+
+/* ---------- start ---------- */
+(async function init(){
+  if (!API){
+    $('#banner').hidden = false;
+    $('#banner').innerHTML = 'You opened this file directly, so boards are only kept in this browser. Start the tool with <b>start.bat</b> / <b>start.command</b> to save boards into your QualCode folder.';
+  }
+  try {
+    await refreshBoards();
+    if (!boards.length) return createBoard('Themes');
+    let last = null; try { last = localStorage.getItem('qualcode_board_last'); } catch(e){}
+    await openBoard(boards.includes(last) ? last : boards[0]);
+  } catch(e){
+    $('#banner').hidden = false;
+    $('#banner').textContent = 'Can’t reach the QualCode server. Start it again with start.bat (Windows) or start.command (Mac), then reload this page.';
+  }
+})();
+window.addEventListener('resize', () => board && applyView());
+</script>
+</body>
+</html>
